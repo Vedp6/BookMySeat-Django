@@ -1,0 +1,15 @@
+Django==6.0.7
+dj-database-url
+gunicorn==23.0.0
+psycopg2-binary
+whitenoise
+Pillow
+razorpay
+celery
+redis
+qrcode
+reportlab
+python-dotenv
+django-cloudinary-storage
+cloudinary
+requests

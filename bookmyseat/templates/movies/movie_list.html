@@ -1,0 +1,309 @@
+{% extends "users/basic.html" %}
+
+{% block content %}
+<div class="discover-hero">
+  <div class="container">
+    <h1 class="discover-title">Discover Movies</h1>
+    <p class="discover-subtitle">Search, filter, and find your next watch</p>
+  </div>
+</div>
+
+<div class="container py-4">
+
+  <!-- Filter Form -->
+  <form method="GET" action="{% url 'movie_list' %}" id="filterForm" class="filter-panel mb-4">
+    <div class="search-box mb-3">
+      <i class="fas fa-search search-box-icon"></i>
+      <input
+        class="form-control form-control-lg search-box-input"
+        name="q"
+        id="searchInput"
+        placeholder="Search movies by title..."
+        type="text"
+        value="{{ current.q|default_if_none:'' }}"
+        aria-label="Search for movies"
+      />
+    </div>
+
+    <div class="form-row">
+      <div class="col-6 col-md-2 mb-3">
+        <label class="filter-label"><i class="fas fa-masks-theater"></i> Genre</label>
+        <select name="genre" class="form-control filter-input filter-select">
+          <option value="">All Genres</option>
+          {% for g in filter_choices.genres %}
+          <option value="{{ g.id }}" {% if current.genre == g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2 mb-3">
+        <label class="filter-label"><i class="fas fa-language"></i> Language</label>
+        <select name="language" class="form-control filter-input filter-select">
+          <option value="">All Languages</option>
+          {% for l in filter_choices.languages %}
+          <option value="{{ l.id }}" {% if current.language == l.id|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2 mb-3">
+        <label class="filter-label"><i class="fas fa-city"></i> City</label>
+        <select name="city" class="form-control filter-input filter-select">
+          <option value="">All Cities</option>
+          {% for c in filter_choices.cities %}
+          <option value="{{ c }}" {% if current.city == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2 mb-3">
+        <label class="filter-label"><i class="fas fa-building"></i> Theater</label>
+        <select name="theater" class="form-control filter-input filter-select">
+          <option value="">All Theaters</option>
+          {% for t in filter_choices.theaters %}
+          <option value="{{ t.id }}" {% if current.theater == t.id|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2 mb-3">
+        <label class="filter-label"><i class="fas fa-star"></i> Min Rating</label>
+        <select name="min_rating" class="form-control filter-input filter-select">
+          <option value="">Any Rating</option>
+          {% for r in "56789" %}
+          <option value="{{ r }}" {% if current.min_rating == r %}selected{% endif %}>{{ r }}+ /10</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2 mb-3">
+        <label class="filter-label"><i class="fas fa-sort"></i> Sort By</label>
+        <select name="sort" class="form-control filter-input filter-select">
+          <option value="popularity" {% if current.sort == "popularity" or not current.sort %}selected{% endif %}>Popularity</option>
+          <option value="newest" {% if current.sort == "newest" %}selected{% endif %}>Newest Releases</option>
+          <option value="rating" {% if current.sort == "rating" %}selected{% endif %}>Rating</option>
+          <option value="price_low" {% if current.sort == "price_low" %}selected{% endif %}>Price: Low to High</option>
+          <option value="price_high" {% if current.sort == "price_high" %}selected{% endif %}>Price: High to Low</option>
+        </select>
+      </div>
+    </div>
+
+    <hr class="filter-divider">
+
+    <div class="form-row align-items-end">
+      <div class="col-6 col-md-2 mb-2">
+        <label class="filter-label"><i class="far fa-calendar-alt"></i> Show Date</label>
+        <input type="date" name="show_date" class="form-control filter-input filter-select" value="{{ current.show_date|default_if_none:'' }}">
+      </div>
+      <div class="col-6 col-md-2 mb-2">
+        <label class="filter-label"><i class="far fa-clock"></i> Show Time</label>
+        <select name="time_slot" class="form-control filter-input filter-select">
+          <option value="">Any Time</option>
+          <option value="morning" {% if current.time_slot == "morning" %}selected{% endif %}>Morning (before 12pm)</option>
+          <option value="afternoon" {% if current.time_slot == "afternoon" %}selected{% endif %}>Afternoon (12-5pm)</option>
+          <option value="evening" {% if current.time_slot == "evening" %}selected{% endif %}>Evening (5-9pm)</option>
+          <option value="night" {% if current.time_slot == "night" %}selected{% endif %}>Night (after 9pm)</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-2 mb-2">
+        <label class="filter-label"><i class="fas fa-calendar-plus"></i> Released From</label>
+        <input type="date" name="release_from" class="form-control filter-input filter-select" value="{{ current.release_from|default_if_none:'' }}">
+      </div>
+      <div class="col-6 col-md-2 mb-2">
+        <label class="filter-label"><i class="fas fa-calendar-minus"></i> Released To</label>
+        <input type="date" name="release_to" class="form-control filter-input filter-select" value="{{ current.release_to|default_if_none:'' }}">
+      </div>
+      <div class="col-12 col-md-4 mb-2 text-md-right">
+        <button type="submit" class="btn btn-filter-apply"><i class="fas fa-filter mr-1"></i> Apply Filters</button>
+        <a href="{% url 'movie_list' %}" class="btn btn-filter-reset">Reset</a>
+      </div>
+    </div>
+  </form>
+
+  <!-- Results (AJAX-refreshed) -->
+  <div id="resultsContainer">
+    {% include "movies/_movie_grid.html" %}
+  </div>
+
+  <!-- Recommended For You -->
+  {% if recommended_movies %}
+  <div class="mt-5">
+    <h4 class="section-title mb-3">
+      {% if user.is_authenticated %}Recommended for You{% else %}Trending Now{% endif %}
+    </h4>
+    <div class="row flex-md-nowrap overflow-auto pb-2">
+      {% for movie in recommended_movies %}
+      <div class="col-6 col-md-3 col-lg-2 mb-3">
+        <a href="{% url 'movie_detail' movie.id %}" class="text-dark">
+          <img src="{{ movie.image.url }}" class="img-fluid rounded shadow-sm w-100" style="height: 200px; object-fit: cover;" alt="{{ movie.name }}">
+          <small class="d-block mt-1">{{ movie.name }}</small>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+  .discover-hero {
+    background: linear-gradient(120deg, #14181f 0%, #1c2530 55%, #17301f 100%);
+    padding: 42px 0 34px;
+    margin-bottom: 0;
+  }
+  .discover-title {
+    color: #fff;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .discover-subtitle {
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 0;
+  }
+  .filter-panel {
+    background: #fff;
+    border-radius: 14px;
+    padding: 24px 24px 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    margin-top: -30px;
+    position: relative;
+    z-index: 3;
+    border: 1px solid rgba(0,0,0,0.05);
+  }
+  .search-box { position: relative; }
+  .search-box-icon {
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #adb5bd;
+  }
+  .search-box-input {
+    padding-left: 42px;
+    border-radius: 10px;
+    border: 1px solid #e2e6ea;
+    background: #f8f9fb;
+  }
+  .search-box-input:focus {
+    background: #fff;
+    border-color: #28a745;
+    box-shadow: 0 0 0 3px rgba(40,167,69,0.12);
+  }
+  .filter-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #6c757d;
+    margin-bottom: 6px;
+  }
+  .filter-label i { color: #28a745; margin-right: 3px; }
+  .filter-select {
+    border-radius: 8px;
+    border: 1px solid #e2e6ea;
+    background: #f8f9fb;
+    font-size: 14px;
+    height: calc(1.6em + 0.9rem + 2px);
+  }
+  .filter-select:focus {
+    background: #fff;
+    border-color: #28a745;
+    box-shadow: 0 0 0 3px rgba(40,167,69,0.12);
+  }
+  .filter-divider {
+    border-top: 1px dashed #e2e6ea;
+    margin: 4px 0 18px;
+  }
+  .btn-filter-apply {
+    background: linear-gradient(90deg, #28a745, #20c997);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 22px;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(40,167,69,0.3);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .btn-filter-apply:hover {
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(40,167,69,0.4);
+  }
+  .btn-filter-reset {
+    border-radius: 8px;
+    padding: 10px 18px;
+    border: 1px solid #dee2e6;
+    color: #6c757d;
+  }
+  @media (max-width: 767px) {
+    .filter-panel { margin-top: -18px; padding: 18px 16px 12px; border-radius: 10px; }
+    .discover-hero { padding: 30px 0 26px; }
+  }
+</style>
+
+<script>
+(function () {
+  const form = document.getElementById("filterForm");
+  const resultsContainer = document.getElementById("resultsContainer");
+  const searchInput = document.getElementById("searchInput");
+  let debounceTimer = null;
+
+  function getCookie(name) {
+    const value = "; " + document.cookie;
+    const parts = value.split("; " + name + "=");
+    if (parts.length === 2) return parts.pop().split(";").shift();
+    return null;
+  }
+
+  function fetchResults(page) {
+    const formData = new FormData(form);
+    const params = new URLSearchParams();
+    for (const [key, value] of formData.entries()) {
+      if (value) params.append(key, value);
+    }
+    if (page) params.append("page", page);
+
+    const url = "{% url 'movie_list' %}?" + params.toString();
+
+    resultsContainer.style.opacity = "0.5";
+
+    fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" }, credentials: "same-origin" })
+      .then((r) => r.text())
+      .then((html) => {
+        resultsContainer.innerHTML = html;
+        resultsContainer.style.opacity = "1";
+        // Keep the address bar/URL in sync so filters survive a refresh
+        // or can be shared/bookmarked.
+        window.history.replaceState(null, "", url);
+      })
+      .catch(() => {
+        resultsContainer.style.opacity = "1";
+      });
+  }
+
+  // Dropdowns/date pickers: refetch immediately on change - this is what
+  // gives the "dynamically display the number of matching movies after
+  // each filter is applied" behaviour without a full page reload.
+  document.querySelectorAll(".filter-input").forEach((el) => {
+    el.addEventListener("change", () => fetchResults());
+  });
+
+  // Search box: debounce so we're not firing a request on every keystroke.
+  searchInput.addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => fetchResults(), 400);
+  });
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    fetchResults();
+  });
+
+  // Pagination links inside the AJAX-loaded partial
+  resultsContainer.addEventListener("click", function (e) {
+    const link = e.target.closest(".filter-page-link");
+    if (link) {
+      e.preventDefault();
+      fetchResults(link.dataset.page);
+      window.scrollTo({ top: form.offsetTop - 20, behavior: "smooth" });
+    }
+  });
+})();
+</script>
+{% endblock %}

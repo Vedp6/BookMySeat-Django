@@ -1,0 +1,34 @@
+{% extends "users/basic.html" %} {% block content %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card shadow">
+        <div class="card-body text-center">
+          {% if valid %}
+            <div class="mb-3">
+              <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+            </div>
+            <h3 class="text-success mb-3">Valid Ticket</h3>
+            <table class="table table-sm text-left">
+              <tr><th>Movie</th><td>{{ order.schedule.movie.name }}</td></tr>
+              <tr><th>Theater</th><td>{{ order.schedule.theater.name }} - {{ order.schedule.screen }}</td></tr>
+              <tr><th>Show Time</th><td>{{ order.schedule.show_time|date:"d M Y, g:i A" }}</td></tr>
+              <tr><th>Seats</th><td>{{ seat_numbers }}</td></tr>
+              <tr><th>Booking ID</th><td>BMS-{{ order.id|stringformat:"06d" }}</td></tr>
+            </table>
+          {% else %}
+            <div class="mb-3">
+              <i class="fas fa-times-circle text-danger" style="font-size: 4rem;"></i>
+            </div>
+            <h3 class="text-danger mb-3">Invalid Ticket</h3>
+            <p class="text-muted">
+              This ticket could not be verified. It may not exist, or the
+              associated payment was never completed.
+            </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

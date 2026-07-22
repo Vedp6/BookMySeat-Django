@@ -1,0 +1,448 @@
+{% extends "users/basic.html" %}
+{% block title %}{{ movie.name }} - BookMySeat{% endblock %}
+{% block content %}
+
+<!-- Hero Banner: blurred backdrop built from the movie's own poster -->
+<div class="movie-hero" style="--hero-bg: url('{{ movie.image.url }}');">
+  <div class="movie-hero-overlay"></div>
+  <div class="container movie-hero-content">
+
+    {% if messages %}
+      {% for message in messages %}
+      <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+
+    <div class="row align-items-end">
+      <div class="col-md-3 col-5 mb-3 mb-md-0">
+        <img src="{{ movie.image.url }}" alt="{{ movie.name }}" class="movie-hero-poster img-fluid rounded shadow-lg w-100">
+      </div>
+      <div class="col-md-9 col-7 text-white">
+        <h1 class="movie-hero-title mb-2">{{ movie.name }}</h1>
+        <div class="mb-3">
+          <span class="badge badge-success">{{ movie.certificate }}</span>
+          <span class="badge badge-light">{{ movie.duration }} min</span>
+          {% if movie.genre %}<span class="badge badge-light">{{ movie.genre.name }}</span>{% endif %}
+          {% if movie.language %}<span class="badge badge-light">{{ movie.language.name }}</span>{% endif %}
+          <span class="badge badge-light d-none d-sm-inline">Released {{ movie.release_date|date:"d M Y" }}</span>
+        </div>
+        <p class="mb-2">
+          <i class="fas fa-star text-warning"></i>
+          <strong>{{ movie.average_rating }}</strong> / 10
+          <span class="text-white-50">({{ reviews|length }} review{{ reviews|length|pluralize }})</span>
+        </p>
+        <p class="d-none d-md-block movie-hero-desc mb-3">{{ movie.description|truncatewords:35 }}</p>
+
+        <a href="{% url 'theater_list' movie.id %}" class="btn btn-success btn-lg mt-2 shadow">
+          <i class="fas fa-ticket-alt mr-1"></i> Book Tickets
+        </a>
+        {% if movie.get_embed_url %}
+        <a href="#trailerSection" class="btn btn-outline-light btn-lg mt-2 ml-2">
+          <i class="fas fa-play mr-1"></i> Watch Trailer
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container py-4">
+
+  <p class="d-md-none">{{ movie.description }}</p>
+
+  {% if movie.cast.all %}
+  <div class="mt-2 mb-4">
+    <h6 class="text-muted mb-2">Cast</h6>
+    <div class="d-flex flex-wrap">
+      {% for member in movie.cast.all %}
+      <div class="text-center mr-3 mb-3" style="width: 80px;">
+        {% if member.image %}
+        <img src="{{ member.image.url }}" class="rounded-circle mb-1" style="width: 60px; height: 60px; object-fit: cover;" alt="{{ member.name }}">
+        {% else %}
+        <div class="rounded-circle bg-secondary mb-1 mx-auto d-flex align-items-center justify-content-center text-white" style="width: 60px; height: 60px;">
+          <i class="fas fa-user"></i>
+        </div>
+        {% endif %}
+        <small class="d-block" style="font-size: 0.75rem;">{{ member.name }}</small>
+        <small class="d-block text-muted" style="font-size: 0.7rem;">{{ member.role }}</small>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Trailer -->
+  {% if movie.get_embed_url %}
+  <div class="mb-5" id="trailerSection">
+    <div class="trailer-card">
+      <div class="trailer-card-header">
+        <i class="fas fa-film mr-2"></i> Watch Trailer
+      </div>
+      <div class="embed-responsive embed-responsive-16by9">
+        <iframe
+          class="embed-responsive-item"
+          src="{{ movie.get_embed_url }}"
+          title="{{ movie.name }} trailer"
+          allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allowfullscreen
+          referrerpolicy="strict-origin-when-cross-origin">
+        </iframe>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Gallery -->
+  {% if movie.gallery.all %}
+  <div class="mb-5">
+    <h4 class="section-title">Gallery</h4>
+    <div class="row">
+      {% for img in movie.gallery.all %}
+      <div class="col-6 col-md-3 mb-3">
+        <img src="{{ img.image.url }}" class="img-fluid rounded shadow-sm w-100" style="height: 160px; object-fit: cover;" alt="{{ movie.name }} still">
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Reviews -->
+  <div class="mb-5">
+    <h4 class="section-title">Ratings &amp; Reviews</h4>
+
+    <!-- Rating Summary -->
+    <div class="rating-summary mb-4">
+      <div class="rating-summary-score">
+        <div class="rating-summary-number">{{ movie.average_rating }}<span class="rating-summary-outof">/10</span></div>
+        <div class="mb-1">
+          <i class="fas fa-star text-warning"></i>
+        </div>
+        <div class="small text-muted">{{ total_reviews }} review{{ total_reviews|pluralize }}</div>
+      </div>
+      <div class="rating-summary-bars">
+        {% for row in rating_breakdown %}
+        <div class="rating-bar-row">
+          <span class="rating-bar-label">{{ row.star }} <i class="fas fa-star text-warning" style="font-size: 10px;"></i></span>
+          <div class="rating-bar-track">
+            <div class="rating-bar-fill" style="width: {{ row.pct }}%;"></div>
+          </div>
+          <span class="rating-bar-count">{{ row.count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% if user.is_authenticated %}
+      {% if can_review %}
+      <div class="review-form-card mb-4">
+        <h6 class="mb-3">{% if user_review %}Edit your review{% else %}Write a review{% endif %}</h6>
+        <form method="POST">
+          {% csrf_token %}
+          <div class="star-rating-input mb-3">
+            {% for radio in review_form.rating %}
+              {{ radio.tag }}
+              <label for="{{ radio.id_for_label }}"><i class="fas fa-star"></i></label>
+            {% endfor %}
+          </div>
+          <div class="form-group">
+            {{ review_form.review }}
+          </div>
+          <button type="submit" name="submit_review" class="btn btn-review-submit">
+            {% if user_review %}Update Review{% else %}Submit Review{% endif %}
+          </button>
+        </form>
+      </div>
+      {% else %}
+      <div class="alert alert-info">
+        You can rate and review this movie once you've booked and watched it.
+      </div>
+      {% endif %}
+    {% else %}
+    <div class="alert alert-info">
+      <a href="{% url 'login' %}">Log in</a> to write a review after watching this movie.
+    </div>
+    {% endif %}
+
+    {% for review in reviews %}
+    <div class="review-card">
+      <div class="review-card-avatar">
+        {{ review.user.username|slice:":1"|upper }}
+      </div>
+      <div class="review-card-body">
+        <div class="d-flex justify-content-between flex-wrap">
+          <div>
+            <strong>{{ review.user.username }}</strong>
+            {% if review.verified_viewer %}
+            <span class="verified-badge ml-1"><i class="fas fa-check-circle"></i> Verified Viewer</span>
+            {% endif %}
+            <div>
+              <i class="fas fa-star text-warning"></i> {{ review.rating }}/10
+            </div>
+          </div>
+          <small class="text-muted">
+            {{ review.created_at|date:"d M Y" }}
+            {% if review.updated_at != review.created_at %}(edited){% endif %}
+          </small>
+        </div>
+        <p class="mt-2 mb-1">{{ review.review }}</p>
+        <div class="small">
+          {% if review.user == user %}
+          <a href="{% url 'edit_review' review.id %}">Edit</a>
+          <form method="POST" action="{% url 'delete_review' review.id %}" class="d-inline" onsubmit="return confirm('Delete your review?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-link btn-sm p-0 text-danger">Delete</button>
+          </form>
+          {% elif user.is_authenticated %}
+          <a href="{% url 'report_review' review.id %}" class="text-muted"><i class="fas fa-flag"></i> Report</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% empty %}
+    <p class="text-muted">No reviews yet. Be the first to review this movie!</p>
+    {% endfor %}
+  </div>
+
+  <!-- Similar Movies -->
+  {% if similar_movies %}
+  <div class="mb-5">
+    <h4 class="section-title">Similar Movies</h4>
+    <div class="row flex-md-nowrap overflow-auto pb-2">
+      {% for m in similar_movies %}
+      <div class="col-6 col-md-3 col-lg-2 mb-3">
+        <a href="{% url 'movie_detail' m.id %}" class="text-dark">
+          <img src="{{ m.image.url }}" class="img-fluid rounded shadow-sm w-100" style="height: 200px; object-fit: cover;" alt="{{ m.name }}">
+          <small class="d-block mt-1">{{ m.name }}</small>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Trending -->
+  {% if trending_movies %}
+  <div class="mb-5">
+    <h4 class="section-title">Trending Now</h4>
+    <div class="row flex-md-nowrap overflow-auto pb-2">
+      {% for m in trending_movies %}
+      <div class="col-6 col-md-3 col-lg-2 mb-3">
+        <a href="{% url 'movie_detail' m.id %}" class="text-dark">
+          <img src="{{ m.image.url }}" class="img-fluid rounded shadow-sm w-100" style="height: 200px; object-fit: cover;" alt="{{ m.name }}">
+          <small class="d-block mt-1">{{ m.name }}</small>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Recently Released -->
+  {% if recent_movies %}
+  <div class="mb-5">
+    <h4 class="section-title">Recently Released</h4>
+    <div class="row flex-md-nowrap overflow-auto pb-2">
+      {% for m in recent_movies %}
+      <div class="col-6 col-md-3 col-lg-2 mb-3">
+        <a href="{% url 'movie_detail' m.id %}" class="text-dark">
+          <img src="{{ m.image.url }}" class="img-fluid rounded shadow-sm w-100" style="height: 200px; object-fit: cover;" alt="{{ m.name }}">
+          <small class="d-block mt-1">{{ m.name }}</small>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<style>
+  .movie-hero {
+    position: relative;
+    padding: 50px 0 40px;
+    overflow: hidden;
+    background-color: #111;
+    /* The base template wraps the page content in a Bootstrap
+       .container (which has a max-width and side padding), so without
+       this the banner would be boxed in like the rest of the page.
+       This is the standard "full-bleed" trick: stretch to the full
+       viewport width regardless of the parent container's constraints. */
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+    margin-right: calc(-50vw + 50%);
+  }
+  .movie-hero::before {
+    content: "";
+    position: absolute;
+    inset: -20px;
+    background-image: var(--hero-bg);
+    background-size: cover;
+    background-position: center 20%;
+    filter: blur(25px) brightness(0.4) saturate(1.3);
+    transform: scale(1.1);
+    z-index: 0;
+  }
+  .movie-hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.8) 100%);
+    z-index: 1;
+  }
+  .movie-hero-content {
+    position: relative;
+    z-index: 2;
+  }
+  .movie-hero-poster {
+    border: 3px solid rgba(255,255,255,0.15);
+  }
+  .movie-hero-title {
+    font-weight: 700;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  }
+  .movie-hero-desc {
+    color: rgba(255,255,255,0.85);
+    max-width: 700px;
+  }
+  .trailer-card {
+    background: #14181f;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    border: 1px solid rgba(40,167,69,0.25);
+  }
+  .trailer-card-header {
+    padding: 14px 20px;
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    background: linear-gradient(90deg, #1a1f27 0%, #14181f 100%);
+    border-bottom: 1px solid rgba(40,167,69,0.25);
+  }
+
+  /* Rating summary */
+  .rating-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+    padding: 22px 24px;
+    align-items: center;
+  }
+  .rating-summary-score {
+    text-align: center;
+    min-width: 110px;
+    border-right: 1px solid #eee;
+    padding-right: 24px;
+  }
+  .rating-summary-number {
+    font-size: 2.6rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #14181f;
+  }
+  .rating-summary-outof {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #adb5bd;
+  }
+  .rating-summary-bars { flex: 1; min-width: 200px; }
+  .rating-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .rating-bar-label { width: 40px; font-size: 12px; color: #6c757d; flex-shrink: 0; }
+  .rating-bar-track {
+    flex: 1;
+    height: 8px;
+    background: #eef0f2;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .rating-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ffc107, #ff9f1c);
+    border-radius: 4px;
+  }
+  .rating-bar-count { width: 26px; font-size: 12px; color: #6c757d; text-align: right; flex-shrink: 0; }
+
+  /* Review form */
+  .review-form-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+    padding: 20px;
+  }
+  .btn-review-submit {
+    background: linear-gradient(90deg, #28a745, #20c997);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-weight: 600;
+  }
+  .btn-review-submit:hover { color: #fff; opacity: 0.92; }
+
+  /* CSS-only star rating selector - relies on the form rendering choices
+     10,9,...,1 in that order, then displaying them reversed so hovering/
+     selecting a star also highlights every star to its left visually.
+     Sized smaller than a typical 5-star widget since there are twice as
+     many, and allowed to wrap on narrow screens. */
+  .star-rating-input {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+  .star-rating-input input { position: absolute; opacity: 0; pointer-events: none; }
+  .star-rating-input label {
+    font-size: 20px;
+    color: #dcdcdc;
+    cursor: pointer;
+    transition: color 0.15s;
+    margin: 0;
+    line-height: 1;
+  }
+  .star-rating-input input:checked ~ label,
+  .star-rating-input label:hover,
+  .star-rating-input label:hover ~ label {
+    color: #ffc107;
+  }
+
+  /* Review cards */
+  .review-card {
+    display: flex;
+    gap: 14px;
+    padding: 18px 0;
+    border-bottom: 1px solid #eee;
+  }
+  .review-card-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .review-card-body { flex: 1; }
+  .verified-badge {
+    background: #e6f7ec;
+    color: #1e7e34;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  @media (max-width: 767px) {
+    .section-title { font-size: 20px; }
+    .movie-hero { padding: 30px 0 25px; }
+    .movie-hero-title { font-size: 1.5rem; }
+    .rating-summary-score { border-right: none; border-bottom: 1px solid #eee; padding-right: 0; padding-bottom: 14px; width: 100%; }
+  }
+</style>
+{% endblock %}

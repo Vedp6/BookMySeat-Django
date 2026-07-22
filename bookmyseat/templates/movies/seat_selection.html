@@ -1,0 +1,283 @@
+{% extends "users/basic.html" %} {% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-lg-8 mx-auto">
+      <!-- Movie and Theater Info -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <div
+            class="d-flex justify-content-between align-items-center flex-wrap"
+          >
+            <div>
+              <h4 class="card-title">{{ schedule.movie.name }}</h4>
+              <p class="card-text text-muted">
+                {{ schedule.theater.name }} | {{ schedule.show_time|date:"d M, g:i A" }}
+                | &#8377;{{ schedule.ticket_price }} / seat
+              </p>
+            </div>
+            <div class="mt-2 mt-sm-0">
+              <span id="holdTimer" class="btn btn-outline-warning disabled d-none">
+                Hold expires in <strong><span id="holdTimerValue">2:00</span></strong>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seat Selection -->
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title text-center mb-2">Select Your Seats</h5>
+          <p class="text-center text-muted small mb-3">
+            Seats update live. Selected seats are held for you for 2 minutes.
+          </p>
+          <div id="seatError" class="alert alert-danger d-none"></div>
+          <div class="screen">All eyes this way please!</div>
+
+          <div class="d-flex justify-content-center flex-wrap mb-4" id="seatGrid" data-schedule-id="{{ schedule.id }}">
+            {% for seat in seats %}
+            <div
+              class="seat"
+              id="seat-{{ seat.id }}"
+              data-seat-id="{{ seat.id }}"
+              data-status="{{ seat.get_status }}"
+            >
+              {{ seat.seat_number }}
+            </div>
+            {% endfor %}
+          </div>
+
+          <!-- Seat Legend -->
+          <div class="d-flex justify-content-center flex-wrap mb-4">
+            <div class="d-flex align-items-center me-4 mb-2">
+              <div class="seat legend available"></div>
+              <span class="ms-2">Available</span>
+            </div>
+            <div class="d-flex align-items-center me-4 mb-2">
+              <div class="seat legend reserved_by_you"></div>
+              <span class="ms-2">Your Selection</span>
+            </div>
+            <div class="d-flex align-items-center me-4 mb-2">
+              <div class="seat legend reserved"></div>
+              <span class="ms-2">Held by Others</span>
+            </div>
+            <div class="d-flex align-items-center mb-2">
+              <div class="seat legend booked"></div>
+              <span class="ms-2">Booked</span>
+            </div>
+          </div>
+
+          <!-- Proceed Button -->
+          <div class="text-center">
+            <button id="proceedBtn" class="btn btn-success btn-lg" disabled>
+              Proceed to Payment (<span id="selectedCount">0</span> seat<span id="selectedPlural">s</span>)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+  }
+  .seat {
+    width: 34px;
+    height: 34px;
+    border: 1px solid #28a745;
+    margin: 3px;
+    text-align: center;
+    line-height: 34px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 12px;
+    user-select: none;
+    transition: background-color 0.2s, color 0.2s, opacity 0.2s;
+  }
+  .seat[data-status="available"] {
+    background-color: white;
+    color: #333;
+  }
+  .seat[data-status="available"]:hover {
+    background-color: #d4edda;
+  }
+  .seat[data-status="reserved_by_you"] {
+    background-color: #28a745;
+    color: white;
+  }
+  .seat[data-status="reserved"] {
+    background-color: #ffc107;
+    color: #333;
+    cursor: not-allowed;
+    border-color: #ffc107;
+  }
+  .seat[data-status="booked"] {
+    background-color: #ccc;
+    border-color: #ccc;
+    color: #666;
+    cursor: not-allowed;
+  }
+  .seat.legend {
+    cursor: default;
+    width: 24px;
+    height: 24px;
+  }
+  .seat.legend.available { background-color: white; }
+  .seat.legend.reserved_by_you { background-color: #28a745; }
+  .seat.legend.reserved { background-color: #ffc107; }
+  .seat.legend.booked { background-color: #ccc; }
+  .screen {
+    margin: 20px 0;
+    background-color: #ccc;
+    height: 50px;
+    text-align: center;
+    line-height: 50px;
+    color: #666;
+  }
+  @media (max-width: 576px) {
+    .seat {
+      width: 28px;
+      height: 28px;
+      line-height: 28px;
+      font-size: 10px;
+    }
+  }
+</style>
+
+<script>
+(function () {
+  const scheduleId = document.getElementById("seatGrid").dataset.scheduleId;
+  const statusUrl = "/movies/schedule/" + scheduleId + "/seats/status/";
+  const reserveUrl = "/movies/schedule/" + scheduleId + "/seats/reserve/";
+  const paymentUrl = "/movies/schedule/" + scheduleId + "/payment/";
+
+  const errorBox = document.getElementById("seatError");
+  const proceedBtn = document.getElementById("proceedBtn");
+  const selectedCountEl = document.getElementById("selectedCount");
+  const selectedPluralEl = document.getElementById("selectedPlural");
+  const holdTimer = document.getElementById("holdTimer");
+  const holdTimerValue = document.getElementById("holdTimerValue");
+
+  let countdownInterval = null;
+  let lowestRemaining = null;
+
+  function getCookie(name) {
+    const value = "; " + document.cookie;
+    const parts = value.split("; " + name + "=");
+    if (parts.length === 2) return parts.pop().split(";").shift();
+    return null;
+  }
+  const csrftoken = getCookie("csrftoken");
+
+  function showError(message) {
+    errorBox.textContent = message;
+    errorBox.classList.remove("d-none");
+    setTimeout(() => errorBox.classList.add("d-none"), 4000);
+  }
+
+  function applySeatStatus(seatEl, status) {
+    seatEl.dataset.status = status;
+  }
+
+  function refreshSelectedCount() {
+    const mine = document.querySelectorAll('.seat[data-status="reserved_by_you"]');
+    selectedCountEl.textContent = mine.length;
+    selectedPluralEl.textContent = mine.length === 1 ? "" : "s";
+    proceedBtn.disabled = mine.length === 0;
+  }
+
+  function startCountdown(seconds) {
+    lowestRemaining = seconds;
+    holdTimer.classList.remove("d-none");
+    if (countdownInterval) clearInterval(countdownInterval);
+    countdownInterval = setInterval(() => {
+      lowestRemaining -= 1;
+      if (lowestRemaining <= 0) {
+        clearInterval(countdownInterval);
+        holdTimer.classList.add("d-none");
+        showError("Your seat hold has expired. Please select your seats again.");
+        pollStatus();
+        return;
+      }
+      const m = Math.floor(lowestRemaining / 60);
+      const s = lowestRemaining % 60;
+      holdTimerValue.textContent = m + ":" + (s < 10 ? "0" : "") + s;
+    }, 1000);
+  }
+
+  function pollStatus() {
+    fetch(statusUrl, { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((data) => {
+        let minRemaining = null;
+        data.seats.forEach((seat) => {
+          const el = document.getElementById("seat-" + seat.id);
+          if (!el) return;
+          applySeatStatus(el, seat.status);
+          if (seat.status === "reserved_by_you") {
+            if (minRemaining === null || seat.seconds_remaining < minRemaining) {
+              minRemaining = seat.seconds_remaining;
+            }
+          }
+        });
+        refreshSelectedCount();
+        if (minRemaining !== null) {
+          startCountdown(minRemaining);
+        } else if (countdownInterval) {
+          clearInterval(countdownInterval);
+          holdTimer.classList.add("d-none");
+        }
+      })
+      .catch(() => {});
+  }
+
+  function toggleSeat(seatEl) {
+    const status = seatEl.dataset.status;
+    if (status === "booked" || status === "reserved") return;
+
+    const action = status === "reserved_by_you" ? "release" : "reserve";
+    const seatId = seatEl.dataset.seatId;
+
+    fetch(reserveUrl, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-CSRFToken": csrftoken,
+      },
+      body: "seat_id=" + encodeURIComponent(seatId) + "&action=" + action,
+    })
+      .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok || !data.success) {
+          showError(data.error || "Could not update that seat.");
+          pollStatus();
+          return;
+        }
+        applySeatStatus(seatEl, data.status);
+        refreshSelectedCount();
+        if (data.status === "reserved_by_you") {
+          startCountdown(data.seconds_remaining);
+        } else {
+          pollStatus();
+        }
+      })
+      .catch(() => showError("Network error, please try again."));
+  }
+
+  document.getElementById("seatGrid").addEventListener("click", function (e) {
+    const seatEl = e.target.closest(".seat[data-seat-id]");
+    if (seatEl) toggleSeat(seatEl);
+  });
+
+  proceedBtn.addEventListener("click", function () {
+    window.location.href = paymentUrl;
+  });
+
+  refreshSelectedCount();
+  pollStatus();
+  setInterval(pollStatus, 8000);
+})();
+</script>
+{% endblock %}
