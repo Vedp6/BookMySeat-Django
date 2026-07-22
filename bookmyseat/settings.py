@@ -122,7 +122,7 @@ else:
 
 # Used to build absolute links (ticket QR verification URLs) from
 # background Celery tasks, which have no request object to build them from.
-SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000')
+SITE_URL = os.environ.get('SITE_URL', 'https://bookmyseat-django.onrender.com')
 
 # Celery - background task queue for ticket email delivery. Defaults to a
 # local Redis instance; set CELERY_BROKER_URL in production (e.g. Render's
