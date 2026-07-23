@@ -1,23 +1,4 @@
-"""
-A no-broker-needed fallback for running the ticket email in the
-background, for deployments that don't have Celery + Redis available
-(e.g. hosts where a persistent worker + broker isn't free).
 
-This is deliberately NOT a replacement for Celery in general - it's a
-fallback used only when Celery genuinely isn't reachable. It satisfies
-the same two requirements that matter to the calling code:
-  1. The HTTP request that triggers it returns immediately, never
-     waiting on PDF generation or email delivery.
-  2. A failed attempt is automatically retried with backoff, up to a
-     fixed number of attempts, without any caller involvement.
-
-What it does NOT provide, unlike Celery + Redis: durability. If the web
-process restarts or crashes mid-retry-wait, a queued email is lost -
-there's no persistent queue backing it, just an in-memory thread. For a
-low-traffic project this is a reasonable trade-off for not needing any
-paid or card-requiring service at all; it would not be an appropriate
-substitute for Celery in a higher-stakes production system.
-"""
 
 import logging
 import threading

@@ -1,24 +1,4 @@
-"""
-Razorpay integration helpers.
 
-All Razorpay-specific logic (creating orders, verifying payment signatures,
-verifying webhook signatures) lives here so views.py stays focused on the
-booking/business logic.
-
-If RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET are not configured (e.g. running
-locally without a Razorpay account yet), this falls back to a mock client
-that mimics the real SDK's response shape, so the rest of the payment flow
-(order creation, checkout page, verification, webhook handling, retries,
-booking confirmation) can still be exercised and tested end-to-end without
-real credentials. In mock mode, signatures are computed with the same HMAC
-scheme Razorpay itself uses, just with a locally-generated secret, so the
-verification code path is identical to production - only the network call
-to Razorpay's servers is stubbed out.
-
-Get real test keys at https://dashboard.razorpay.com/app/keys (Test Mode)
-and set them as RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET / RAZORPAY_WEBHOOK_SECRET
-environment variables to go live with actual Razorpay Checkout.
-"""
 
 import hashlib
 import hmac

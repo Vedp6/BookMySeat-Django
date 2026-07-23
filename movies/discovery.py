@@ -1,28 +1,4 @@
-"""
-Movie discovery: search, filter, sort, and recommendation queries.
 
-Kept separate from views.py so the query-building logic (the part that
-actually needs to be "optimized Django ORM") is easy to read, test, and
-reason about on its own.
-
-Two fan-out traps show up repeatedly when filtering Movie by things that
-live on related tables (shows, bookings) and this module is deliberate
-about avoiding both:
-
-1. Filtering through a reverse relation (e.g. movie__shows__theater__city)
-   joins in extra rows - a movie with 5 matching shows would otherwise
-   appear 5 times in the result set. Every filter that joins through
-   `shows` is followed by .distinct() on the final queryset.
-
-2. Combining that same join with Count()/Sum() aggregates multiplies the
-   aggregate by the number of joined rows (e.g. "booking_count" would come
-   out N times too large if N shows also matched the join). Count(...,
-   distinct=True) counts distinct target IDs and is immune to this; Min/
-   Max/Avg are naturally immune since duplicates don't change the result.
-   Sum() is the one aggregate that would still be wrong in this situation
-   - this module never combines Sum() with a multi-valued join on the
-   same queryset.
-"""
 
 from datetime import datetime, time as dt_time
 

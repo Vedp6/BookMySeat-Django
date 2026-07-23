@@ -66,9 +66,6 @@
       ></li>
       <li data-target="#carouselExampleIndicators" data-slide-to="1"></li>
       <li data-target="#carouselExampleIndicators" data-slide-to="2"></li>
-      {% for movie in carousel_movies %}
-      <li data-target="#carouselExampleIndicators" data-slide-to="{{ forloop.counter|add:2 }}"></li>
-      {% endfor %}
     </ol>
     <div class="carousel-inner">
       <div class="carousel-item active">
@@ -95,19 +92,6 @@
           height="300"
         />
       </div>
-      {% for movie in carousel_movies %}
-      <div class="carousel-item">
-        <a href="{% url 'movie_detail' movie.id %}">
-          <img
-            class="d-block w-100"
-            src="{{ movie.image.url }}"
-            alt="{{ movie.name }}"
-            height="300"
-            style="object-fit: cover;"
-          />
-        </a>
-      </div>
-      {% endfor %}
     </div>
     <a
       class="carousel-control-prev"

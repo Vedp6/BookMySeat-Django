@@ -18,22 +18,10 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Loads variables from a .env file (if one exists) in the project root
-# into os.environ, so every os.environ.get(...) call below picks them up
-# automatically - no need to manually 'export'/'set' env vars in every
-# new terminal session. Safe to call even if no .env file exists (it's a
-# no-op in that case, e.g. on Render where real env vars are set directly
-# in the dashboard instead).
+
 load_dotenv(BASE_DIR / '.env')
 
-# Read early (before INSTALLED_APPS) so the cloudinary_storage/cloudinary
-# apps can be registered conditionally - django-cloudinary-storage ships
-# its own collectstatic override that conflicts with whitenoise's manifest
-# step, so it should only be active when actually needed, not by default.
-# Read early (before INSTALLED_APPS) so the cloudinary_storage/cloudinary
-# apps can be registered conditionally - django-cloudinary-storage ships
-# its own collectstatic override that conflicts with whitenoise's manifest
-# step, so it should only be active when actually needed, not by default.
+
 CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
 
 
@@ -46,9 +34,7 @@ SECRET_KEY = os.environ.get(
     'django-insecure-2ae-u313w46eet@!feg#(ar9lx%cc(j03jjqt4f1182-_^=-c8'
 )
 
-# SECURITY WARNING: don't run with debug turned on in production!
-# Locally this defaults to True. In production (Render/Vercel), set the
-# DEBUG environment variable to "False".
+
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['.vercel.app', '127.0.0.1', 'localhost', '.onrender.com']
@@ -69,14 +55,7 @@ INSTALLED_APPS = [
 ]
 
 if CLOUDINARY_CLOUD_NAME:
-    # Deliberately NOT adding 'cloudinary_storage' to INSTALLED_APPS: doing
-    # so activates its own collectstatic command override (meant for
-    # projects that also host their *static* files on Cloudinary, which
-    # this project doesn't), and that override breaks whitenoise's
-    # manifest post-processing step for unrelated static files. The
-    # MediaCloudinaryStorage class used in STORAGES below works fine
-    # without its app being registered - only 'cloudinary' (the base SDK)
-    # is needed for the API client/credentials it uses internally.
+
     INSTALLED_APPS.append('cloudinary')
 
 MIDDLEWARE = [
@@ -92,17 +71,7 @@ MIDDLEWARE = [
 
 AUTH_USER_MODEL='auth.User'
 
-# Email - defaults to printing to the console (visible in `runserver`/worker
-# logs) so ticket emails are inspectable without any setup.
-#
-# Priority: Brevo (HTTP API) > SMTP > console. Brevo is checked first
-# because Render's free web services block all outbound SMTP ports (25,
-# 465, 587) entirely as of Sept 2025 - EMAIL_HOST_USER/PASSWORD simply
-# cannot work there no matter how correct they are (confirmed by an
-# OSError: Network is unreachable at the TCP level, before any auth is
-# even attempted). Brevo's API goes over plain HTTPS instead, which isn't
-# blocked, and its free tier (300 emails/day, single sender verification,
-# no card) works fine on Render's free tier specifically for this reason.
+
 BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '')
 
 if BREVO_API_KEY:
@@ -120,31 +89,19 @@ else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
     DEFAULT_FROM_EMAIL = 'tickets@bookmyseat.local'
 
-# Used to build absolute links (ticket QR verification URLs) from
-# background Celery tasks, which have no request object to build them from.
-SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000')
 
-# Celery - background task queue for ticket email delivery. Defaults to a
-# local Redis instance; set CELERY_BROKER_URL in production (e.g. Render's
-# Redis add-on, or Upstash) to point at a real broker.
+SITE_URL = os.environ.get('http://127.0.0.1:8000','SITE_URL')
+
+
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-# No result backend: this app only ever fires tasks with .delay() and never
-# checks their return value/status, so a result backend is pure overhead -
-# and, critically, it's what caused .delay() to hang for ~19 seconds when
-# Redis was unreachable (the result backend's own pubsub connection retried
-# repeatedly, independent of the broker connection settings below). Setting
-# CELERY_TASK_IGNORE_RESULT skips that code path entirely.
+
 CELERY_RESULT_BACKEND = None
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_TRACK_STARTED = False
-# Never let a broken/unreachable broker make the booking flow hang - a
-# single fast-failing attempt, not the library's default retry-for-a-
-# minute-with-backoff behaviour. This is what actually makes "the booking
-# process should never wait for email delivery" true when the broker is
-# down, not just when it's merely slow.
+
 CELERY_BROKER_CONNECTION_TIMEOUT = 2
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = False
 CELERY_BROKER_CONNECTION_RETRY = False
@@ -153,18 +110,7 @@ CELERY_BROKER_CONNECTION_MAX_RETRIES = 0
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Media storage: uploaded images (posters, gallery, cast photos) go to
-# Cloudinary when it's configured, so they survive redeploys/restarts on
-# hosts like Render whose local disk isn't guaranteed to persist. Without
-# CLOUDINARY_CLOUD_NAME set (e.g. running locally), this falls back to
-# Django's normal local-disk storage - no Cloudinary account needed for
-# local development or testing. (CLOUDINARY_CLOUD_NAME itself is read
-# near the top of this file, before INSTALLED_APPS.) The actual STORAGES
-# setting that wires this up lives further down, next to STATIC_ROOT, so
-# it can be defined in exactly one place alongside the static-files
-# (whitenoise) storage - Django doesn't allow STORAGES and the old-style
-# STATICFILES_STORAGE to both be set independently, so they're configured
-# together there.
+
 if CLOUDINARY_CLOUD_NAME:
     CLOUDINARY_STORAGE = {
         'CLOUD_NAME': CLOUDINARY_CLOUD_NAME,
@@ -172,11 +118,7 @@ if CLOUDINARY_CLOUD_NAME:
         'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET', ''),
     }
 
-# Razorpay (Test Mode keys from https://dashboard.razorpay.com/app/keys).
-# If these are left unset, the payment flow runs in local mock mode - see
-# movies/payments.py - so the app is still fully testable without a
-# Razorpay account, but no real Checkout widget or webhook validation
-# against Razorpay's servers happens until real keys are set.
+
 RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
 RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
 RAZORPAY_WEBHOOK_SECRET = os.environ.get('RAZORPAY_WEBHOOK_SECRET', '')
@@ -212,22 +154,11 @@ DATABASES = {
     }
 }
 
-# In production (Render/Vercel), set the DATABASE_URL environment variable
-# to your Postgres connection string. Locally, without it set, this falls
-# back to sqlite above.
+
 if os.environ.get('DATABASE_URL'):
     DATABASES['default'] = dj_database_url.parse(
         os.environ['DATABASE_URL'],
-        # Reuse a DB connection across requests within the same warm
-        # process/instance instead of opening a fresh one every time -
-        # meaningful on Render (a long-lived process) but only a partial
-        # help on serverless hosts like Vercel, where each cold start still
-        # gets a brand-new connection regardless of this setting. If pages
-        # still feel slow on Vercel after this, the real fix is switching
-        # DATABASE_URL to your database provider's *pooled* connection
-        # string (e.g. Neon/Supabase/Render all offer one specifically
-        # for serverless callers) - this setting alone can't substitute
-        # for that.
+       
         conn_max_age=60,
     )
 
@@ -269,12 +200,7 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Single STORAGES setting for both static files and media - Django doesn't
-# allow this to be split across STORAGES and the old-style
-# STATICFILES_STORAGE, so everything storage-related is defined here.
-# Static files always go through whitenoise regardless of Cloudinary
-# config; only the "default" (media/uploads) backend changes based on
-# whether CLOUDINARY_CLOUD_NAME is set (see MEDIA_URL section above).
+
 STORAGES = {
     "default": {
         "BACKEND": (
@@ -287,10 +213,5 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
-# django-cloudinary-storage ships its own collectstatic command (since it
-# also supports hosting static files on Cloudinary, which this project
-# doesn't use) that still reads this older, pre-Django-4.2 setting
-# directly instead of STORAGES - kept in sync here purely so that
-# command doesn't crash. Django itself uses STORAGES above; this is only
-# for that one third-party command's internal check.
+
 STATICFILES_STORAGE = STORAGES["staticfiles"]["BACKEND"]

@@ -1,23 +1,4 @@
-"""
-A Django email backend that sends via Brevo's HTTP API instead of SMTP.
 
-Exists specifically because Render's free web services block all outbound
-SMTP ports (25, 465, 587) as of September 2025 to prevent spam abuse - so
-Django's normal SMTP backend simply cannot work there, regardless of how
-correct the credentials are (confirmed by the OSError: Network is
-unreachable error, which happens at the TCP connection level, before any
-authentication is even attempted).
-
-Brevo's API is reached over plain HTTPS (port 443), which nothing blocks -
-so this backend sidesteps the restriction entirely while staying on a free
-tier and requiring no credit card (Brevo's free plan: 300 emails/day,
-single sender verification against your own email address, no card).
-
-Used automatically instead of Django's SMTP backend when BREVO_API_KEY is
-set - see settings.py. Falls back to SMTP (and, if that's not configured
-either, the console backend) otherwise, so nothing breaks for anyone not
-using Brevo, e.g. local development.
-"""
 
 import requests
 from django.conf import settings

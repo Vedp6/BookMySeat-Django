@@ -9,17 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def _do_send_ticket_email(order_id):
-    """
-    The actual work: generate the PDF ticket and email it. Shared by both
-    the real Celery task below (used when a broker is available) and the
-    no-broker-needed threading fallback in background_tasks.py - both
-    call this exact same function, so the ticket a user gets is identical
-    either way, and there's only one place this logic needs to be correct.
-
-    Raises on failure (rather than swallowing errors) so both callers'
-    retry logic - Celery's autoretry_for, or the manual retry loop in the
-    threading fallback - can detect the failure and retry.
-    """
+   
     from .models import Order
     from .ticket import generate_ticket_pdf
 

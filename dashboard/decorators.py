@@ -4,9 +4,7 @@ from django.core.exceptions import PermissionDenied
 
 
 def _is_dashboard_admin(user):
-    # Staff or superuser only - Django's own permission system, not a
-    # custom flag - so promoting/demoting dashboard access is just the
-    # normal "is_staff" checkbox on the User model in /admin/.
+  
     return user.is_authenticated and user.is_staff
 
 

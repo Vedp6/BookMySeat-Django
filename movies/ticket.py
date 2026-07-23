@@ -1,13 +1,4 @@
-"""
-Generates the PDF movie ticket for a paid Order.
 
-Used from two places:
-- movies/tasks.py -> the async Celery task that emails it after payment
-- movies/views.py -> the synchronous "download ticket" view
-
-Both call generate_ticket_pdf(order) and get identical bytes back, so the
-emailed ticket and the one a user re-downloads later are always the same.
-"""
 
 import io
 
