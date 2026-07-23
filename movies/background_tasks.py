@@ -26,9 +26,10 @@ import random
 
 logger = logging.getLogger(__name__)
 
-MAX_RETRIES = 5
-BASE_DELAY_SECONDS = 30       # first retry after ~30s
-MAX_DELAY_SECONDS = 600       # cap backoff at 10 minutes, same as the Celery path
+MAX_RETRIES = 4
+BASE_DELAY_SECONDS = 5        # first retry after ~5s - kept short since this
+MAX_DELAY_SECONDS = 60        # thread needs to finish before a free host's
+                               # process might get frozen/killed between requests
 
 
 def _run_with_retry(fn, args, description):

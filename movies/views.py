@@ -488,15 +488,34 @@ def _confirm_payment_success(order_id, razorpay_payment_id):
 def _enqueue_ticket_email(order_id):
     try:
         send_ticket_email_task.delay(order_id)
+        return
     except Exception:
-        # Broker unreachable/unconfigured (e.g. no Redis available on a
-        # free host) - fall back to an in-process background thread with
-        # its own retry logic instead of just dropping the email. This
-        # keeps ticket delivery working even with zero Celery/Redis
-        # infrastructure, just without Celery's durability guarantees.
         logger.warning(
-            "Celery broker unavailable for order %s - falling back to "
-            "in-process background thread for ticket email.",
+            "Celery broker unavailable for order %s - trying an immediate "
+            "synchronous send instead of a background thread.",
+            order_id,
+        )
+
+    # Send right now, inside this same request, rather than handing off to
+    # a background thread. This matters specifically on free hosts (e.g.
+    # Render) whose process can be frozen or killed between requests -
+    # a background thread's retry-wait can get silently interrupted there,
+    # losing the email with no error at all. Sending immediately guarantees
+    # it runs to completion (or fails fast) while the process is
+    # definitely still alive, since the request itself is what's keeping
+    # it running. Brevo's HTTP API responds in well under a second, so
+    # this adds negligible delay compared to the old SMTP attempts, which
+    # could hang for many seconds before timing out.
+    try:
+        from .tasks import _do_send_ticket_email
+        _do_send_ticket_email(order_id)
+    except Exception:
+        # Only now, as a last resort for a genuine send failure (not just
+        # "no broker configured"), fall back to a background thread with
+        # its own short retry loop.
+        logger.warning(
+            "Immediate ticket email send failed for order %s - falling "
+            "back to a background retry thread.",
             order_id,
         )
         background_tasks.send_ticket_email_in_background(order_id)
