@@ -12,7 +12,10 @@ def home(request):
         movies = discovery.recommended_for_user(request.user, limit=8)
     else:
         movies = discovery.trending_fallback(8)
-    return render(request,'home.html',{'movies':movies})
+
+    carousel_movies = Movie.objects.order_by("-release_date")[:5]
+
+    return render(request, 'home.html', {'movies': movies, 'carousel_movies': carousel_movies})
 def register(request):
     if request.method == 'POST':
         form=UserRegisterForm(request.POST)
